@@ -98,7 +98,7 @@ def create_asset(fileName:str, hashString:str,token: Annotated[str, Depends(oaut
     return result
 
 @app.get("/find_asset")
-async def find_ASA(fileName: Union[str,None] = None,hash: Union[str,None] = None):
+async def find_asset(fileName: Union[str,None] = None,hash: Union[str,None] = None):
     if hash == None and fileName == None:
         raise HTTPException(status_code=422, detail="variables hash and/or fileName should not be null")
     data = indexer_client.account_info(ownerAddress)["account"]
@@ -134,7 +134,6 @@ def list_assets():
 @app.get("/get_address")
 def get_address():
     return ownerAddress
-
 
 @app.get("/account_balance")
 def get_balance():
