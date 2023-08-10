@@ -1,49 +1,23 @@
 from typing import Union
 from typing_extensions import Annotated
-from fastapi import Depends, FastAPI,HTTPException,status
-from pydantic import BaseModel
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import FastAPI,HTTPException, Header
 
-from algosdk import account, mnemonic, transaction
 from algosdk.v2client import algod,indexer
-
 import algosdk
-import requests
 import re
 import json
 import base64
 
-fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "full_name": "John Doe",
-        "email": "johndoe@example.com",
-        "hashed_password": "fakehashedsecret",
-        "disabled": False,
-    },
-    "alice": {
-        "username": "alice",
-        "full_name": "Alice Wonderson",
-        "email": "alice@example.com",
-        "hashed_password": "fakehashedsecret2",
-        "disabled": True,
-    },
-}
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-#from algosdk.future import transaction
-
 
 with open("config.json", "r") as config_file:
     config = json.load(config_file)
-ownerPrivKey = mnemonic.to_private_key(config["mnemonic"])
-ownerAddress = account.address_from_private_key(ownerPrivKey)
+ownerPrivKey = algosdk.mnemonic.to_private_key(config["mnemonic"])
+ownerAddress = algosdk.account.address_from_private_key(ownerPrivKey)
 network = config["network"]["value"]
 algod_client = algod.AlgodClient(config["network"]["apiToken"], config["network"][network]["node"])
 indexer_client = indexer.IndexerClient(config["network"]["apiToken"], config["network"][network]["indexer"])
 
 app = FastAPI()
-
-#https://testnet-idx.algonode.cloud//v2/accounts/{account}
 
 @app.get("/")
 def index():
@@ -54,29 +28,17 @@ def index():
     })
 
 @app.post("/create_asset")
-def create_asset(fileName:str, hashString:str,token: Annotated[str, Depends(oauth2_scheme)]):
-    return{"asd":token}
-    hashString = "aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899"
-    if (re.search("[^a-f0-9]",hashString) != None):
+def create_asset(fileName:str, hashString:str,x_token: Annotated[Union[str, None], Header()] = None):
+    if config["x-token"] != x_token:
+        raise HTTPException(status_code=401, detail="Invalid x-token. Anauthorized.")
+    if (re.search("[^a-f0-9]",hashString) != None or
+        not re.compile(r'^[0-9a-fA-F]{64}$').match(hashString)):
         raise HTTPException(status_code=422, detail="invalid hash data")
-    hashBytes = bytes.fromhex("0001")
-
-    urlNode = config["network"][network]["node"]
-    apiToken = config["network"]["apiToken"]
-    url = f"{urlNode}/v2/transactions/params"
-    params = requests.get(url).json()
-    suggestedParams = algosdk.transaction.SuggestedParams(
-        fee=int(params["fee"]),
-        first=int(params["last-round"]),
-        last=int(params["last-round"]) + 1000,
-        gh=params["genesis-hash"],
-        gen=params["genesis-id"],
-        consensus_version=params["consensus-version"],
-        min_fee=params["min-fee"],
-        )
+    hashBytes = bytes.fromhex(hashString)
+    
     unsigned_tx = algosdk.transaction.AssetCreateTxn(
         sender=ownerAddress,
-        sp = suggestedParams,
+        sp = algod_client.suggested_params(),
         total= 1,
         decimals= 0,
         default_frozen=True,
@@ -88,9 +50,8 @@ def create_asset(fileName:str, hashString:str,token: Annotated[str, Depends(oaut
         unit_name="PDF_HASH",
         asset_name=fileName
     )
-    signed_tx = unsigned_tx.sign(mnemonic.to_private_key(config["mnemonic"]))
+    signed_tx = unsigned_tx.sign(ownerPrivKey)
     
-    algod_client = algod.AlgodClient(apiToken, urlNode)  
     tx_id = algod_client.send_transaction(signed_tx)
     result ={
         "tx_id": tx_id
