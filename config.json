@@ -1,0 +1,21 @@
+{
+    "appName":"API-HashToNFT",
+    "version": "v0.1",
+    "mnemonic":"scout tongue concert practice stable vocal club belt radio shy jacket quit pear play ripple devote jelly analyst wear whale crunch jump horror about anxiety",
+    "network":{
+        "value": "testnet",
+        "apiToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "betanet": {
+          "node":"http://betanet-api.algonode.network",
+          "indexer":"https://betanet-idx.algonode.cloud"  
+        },
+        "testnet": {
+            "node":"http://testnet-api.algonode.network",
+            "indexer":"https://testnet-idx.algonode.cloud"
+          },
+        "mainnet": {
+            "node":"http://mainnet-api.algonode.network",
+            "indexer":"https://mainnet-idx.algonode.cloud"
+        }
+    }
+}
