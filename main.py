@@ -1,12 +1,14 @@
 from typing import Union
 from typing_extensions import Annotated
 from fastapi import FastAPI,HTTPException, Header
+from pydantic import BaseModel
 
 from algosdk.v2client import algod,indexer
 import algosdk
 import re
 import json
 import base64
+
 
 
 with open("config.json", "r") as config_file:
@@ -27,14 +29,18 @@ def index():
         "version":config['version']
     })
 
+class asset(BaseModel):
+    fileName: str
+    hashString: str
+
 @app.post("/create_asset")
-def create_asset(fileName:str, hashString:str,x_token: Annotated[Union[str, None], Header()] = None):
+def create_asset(asset:asset,x_token: Annotated[Union[str, None], Header()] = None):
     if config["x-token"] != x_token:
         raise HTTPException(status_code=401, detail="Invalid x-token. Anauthorized.")
-    if (re.search("[^a-f0-9]",hashString) != None or
-        not re.compile(r'^[0-9a-fA-F]{64}$').match(hashString)):
+    if (re.search("[^a-f0-9]",asset.hashString) != None or
+        not re.compile(r'^[0-9a-fA-F]{64}$').match(asset.hashString)):
         raise HTTPException(status_code=422, detail="invalid hash data")
-    hashBytes = bytes.fromhex(hashString)
+    hashBytes = bytes.fromhex(asset.hashString)
     
     unsigned_tx = algosdk.transaction.AssetCreateTxn(
         sender=ownerAddress,
@@ -48,7 +54,7 @@ def create_asset(fileName:str, hashString:str,x_token: Annotated[Union[str, None
         clawback=ownerAddress,
         metadata_hash= hashBytes,
         unit_name="PDF_HASH",
-        asset_name=fileName
+        asset_name=asset.fileName
     )
     signed_tx = unsigned_tx.sign(ownerPrivKey)
     
